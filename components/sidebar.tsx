@@ -9,7 +9,7 @@ import type { User } from "@supabase/supabase-js";
 
 const navItems = [
   { href: "/wishlists", label: "My Wishlists", icon: ListChecks },
-  { href: "/friends", label: "Friends", icon: Users, disabled: true },
+  { href: "/friends", label: "Friends", icon: Users },
   { href: "/settings", label: "Settings", icon: Settings, disabled: true },
 ];
 

@@ -158,9 +158,44 @@ create trigger wishlists_updated_at
 
 
 -- ============================================================
+-- 6. FRIENDSHIPS TABLE
+-- ============================================================
+create table public.friendships (
+  id uuid primary key default gen_random_uuid(),
+  requester_id uuid not null references auth.users(id) on delete cascade,
+  addressee_id uuid not null references auth.users(id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending', 'accepted', 'declined')),
+  created_at timestamptz not null default now(),
+  constraint no_self_friendship check (requester_id <> addressee_id),
+  constraint unique_friendship unique (requester_id, addressee_id)
+);
+
+alter table public.friendships enable row level security;
+
+create policy "Users can view own friendships"
+  on public.friendships for select
+  using (auth.uid() = requester_id or auth.uid() = addressee_id);
+
+create policy "Users can send friend requests"
+  on public.friendships for insert
+  with check (auth.uid() = requester_id and status = 'pending');
+
+create policy "Addressee can respond to requests"
+  on public.friendships for update
+  using (auth.uid() = addressee_id)
+  with check (status in ('accepted', 'declined'));
+
+create policy "Users can remove friendships"
+  on public.friendships for delete
+  using (auth.uid() = requester_id or auth.uid() = addressee_id);
+
+create index idx_friendships_requester on public.friendships(requester_id);
+create index idx_friendships_addressee on public.friendships(addressee_id);
+
+
+-- ============================================================
 -- FUTURE TABLES (stubbed — uncomment when ready)
 -- ============================================================
 
--- Friendships, events, event_members, and claims tables
+-- events, event_members, and claims tables
 -- will be added in later sprints per the PRD.
--- See the PRD Section 7 (Data Model) for full schema.
