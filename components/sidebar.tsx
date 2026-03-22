@@ -10,7 +10,7 @@ import type { User } from "@supabase/supabase-js";
 const navItems = [
   { href: "/wishlists", label: "My Wishlists", icon: ListChecks },
   { href: "/friends", label: "Friends", icon: Users },
-  { href: "/settings", label: "Settings", icon: Settings, disabled: true },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function Sidebar({ user }: { user: User }) {
@@ -50,22 +50,15 @@ export function Sidebar({ user }: { user: User }) {
             return (
               <Link
                 key={item.href}
-                href={item.disabled ? "#" : item.href}
+                href={item.href}
                 className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                  item.disabled
-                    ? "cursor-not-allowed text-stone-300"
-                    : isActive
+                  isActive
                     ? "bg-brand-50 text-brand-600"
                     : "text-stone-600 hover:bg-stone-50 hover:text-stone-900"
                 }`}
               >
                 <item.icon className="h-4.5 w-4.5" />
                 {item.label}
-                {item.disabled && (
-                  <span className="ml-auto rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-stone-400">
-                    Soon
-                  </span>
-                )}
               </Link>
             );
           })}

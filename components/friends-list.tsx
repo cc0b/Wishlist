@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-client";
-import { UserPlus, UserCheck, UserX, Trash2, Users, Clock, Search, X } from "lucide-react";
+import Link from "next/link";
+import { UserPlus, UserCheck, UserX, Trash2, Users, Clock, Search, X, Gift } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface Profile {
@@ -283,13 +284,23 @@ export function FriendsList({ friendships, currentUserId }: FriendsListProps) {
                       </p>
                       <p className="truncate text-xs text-stone-400">{friend.email}</p>
                     </div>
-                    <button
-                      onClick={() => handleRemove(f.id, friend.display_name || friend.email)}
-                      className="rounded-md p-1.5 text-stone-300 opacity-0 transition-all hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
-                      title="Remove friend"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center gap-1 opacity-0 transition-all group-hover:opacity-100">
+                      <Link
+                        href={`/friends/${friend.id}`}
+                        className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-brand-600 hover:bg-brand-50 transition-colors"
+                        title="View wishlists"
+                      >
+                        <Gift className="h-3.5 w-3.5" />
+                        View wishlists
+                      </Link>
+                      <button
+                        onClick={() => handleRemove(f.id, friend.display_name || friend.email)}
+                        className="rounded-md p-1.5 text-stone-300 hover:bg-red-50 hover:text-red-500 transition-colors"
+                        title="Remove friend"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </motion.div>
                 );
               })}
