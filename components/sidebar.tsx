@@ -35,12 +35,15 @@ export function Sidebar({ user }: { user: User }) {
   return (
     <aside className="flex w-64 flex-col border-r border-stone-200 bg-white">
       {/* Logo */}
-      <div className="flex items-center gap-3 border-b border-stone-100 px-6 py-5">
+      <Link
+        href="/home"
+        className="flex items-center gap-3 border-b border-stone-100 px-6 py-5 transition-opacity hover:opacity-80"
+      >
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-500">
           <Gift className="h-4.5 w-4.5 text-white" />
         </div>
         <span className="font-display text-xl text-stone-900">Wishlist</span>
-      </div>
+      </Link>
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4">
