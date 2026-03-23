@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-client";
 import Link from "next/link";
-import { UserPlus, UserCheck, UserX, Trash2, Users, Clock, Search, X, Gift } from "lucide-react";
+import { UserPlus, UserCheck, Trash2, Users, Clock, AtSign, X, Gift } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface Profile {
@@ -12,6 +12,7 @@ interface Profile {
   email: string;
   display_name: string;
   avatar_url: string | null;
+  username: string | null;
 }
 
 interface Friendship {
@@ -30,9 +31,7 @@ interface FriendsListProps {
 }
 
 function Avatar({ profile, size = "md" }: { profile: Profile; size?: "sm" | "md" }) {
-  const cls = size === "sm"
-    ? "h-8 w-8 text-sm"
-    : "h-10 w-10 text-base";
+  const cls = size === "sm" ? "h-8 w-8 text-sm" : "h-10 w-10 text-base";
   if (profile.avatar_url) {
     return (
       <img
@@ -50,11 +49,18 @@ function Avatar({ profile, size = "md" }: { profile: Profile; size?: "sm" | "md"
   );
 }
 
+function FriendSubtitle({ profile }: { profile: Profile }) {
+  if (profile.username) {
+    return <p className="truncate text-xs text-stone-400">@{profile.username}</p>;
+  }
+  return <p className="truncate text-xs text-stone-400">{profile.email}</p>;
+}
+
 export function FriendsList({ friendships, currentUserId }: FriendsListProps) {
   const router = useRouter();
   const supabase = createClient();
 
-  const [searchEmail, setSearchEmail] = useState("");
+  const [searchUsername, setSearchUsername] = useState("");
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState("");
   const [searchSuccess, setSearchSuccess] = useState("");
@@ -74,19 +80,19 @@ export function FriendsList({ friendships, currentUserId }: FriendsListProps) {
     e.preventDefault();
     setSearchError("");
     setSearchSuccess("");
-    if (!searchEmail.trim()) return;
+    const query = searchUsername.trim().replace(/^@/, "");
+    if (!query) return;
 
     setSearchLoading(true);
     try {
-      // Find user by email
       const { data: profile, error } = await supabase
         .from("profiles")
-        .select("id, email, display_name, avatar_url")
-        .eq("email", searchEmail.trim().toLowerCase())
+        .select("id, email, display_name, avatar_url, username")
+        .eq("username", query.toLowerCase())
         .single();
 
       if (error || !profile) {
-        setSearchError("No user found with that email.");
+        setSearchError("No user found with that username.");
         return;
       }
 
@@ -95,7 +101,6 @@ export function FriendsList({ friendships, currentUserId }: FriendsListProps) {
         return;
       }
 
-      // Check if friendship already exists
       const already = friendships.find(
         (f) =>
           (f.requester_id === currentUserId && f.addressee_id === profile.id) ||
@@ -122,7 +127,7 @@ export function FriendsList({ friendships, currentUserId }: FriendsListProps) {
       }
 
       setSearchSuccess(`Request sent to ${profile.display_name || profile.email}.`);
-      setSearchEmail("");
+      setSearchUsername("");
       router.refresh();
     } finally {
       setSearchLoading(false);
@@ -130,10 +135,7 @@ export function FriendsList({ friendships, currentUserId }: FriendsListProps) {
   };
 
   const handleAccept = async (friendshipId: string) => {
-    await supabase
-      .from("friendships")
-      .update({ status: "accepted" })
-      .eq("id", friendshipId);
+    await supabase.from("friendships").update({ status: "accepted" }).eq("id", friendshipId);
     router.refresh();
   };
 
@@ -157,37 +159,36 @@ export function FriendsList({ friendships, currentUserId }: FriendsListProps) {
     <div className="space-y-8">
       {/* Add Friend */}
       <div className="card">
-        <h2 className="mb-4 font-semibold text-stone-900">Add a friend</h2>
+        <h2 className="mb-1 font-semibold text-stone-900">Add a friend</h2>
+        <p className="mb-4 text-sm text-stone-500">
+          Enter their username to send a friend request.
+        </p>
         <form onSubmit={handleSendRequest} className="flex gap-2">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
+            <AtSign className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
             <input
-              type="email"
-              value={searchEmail}
+              type="text"
+              value={searchUsername}
               onChange={(e) => {
-                setSearchEmail(e.target.value);
+                setSearchUsername(e.target.value.toLowerCase().replace(/\s/g, ""));
                 setSearchError("");
                 setSearchSuccess("");
               }}
-              placeholder="Enter their email address"
+              placeholder="username"
               className="w-full rounded-lg border border-stone-200 py-2 pl-9 pr-3 text-sm text-stone-900 placeholder:text-stone-400 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
             />
           </div>
           <button
             type="submit"
-            disabled={searchLoading || !searchEmail.trim()}
+            disabled={searchLoading || !searchUsername.trim()}
             className="flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <UserPlus className="h-4 w-4" />
             {searchLoading ? "Sending…" : "Send request"}
           </button>
         </form>
-        {searchError && (
-          <p className="mt-2 text-sm text-red-500">{searchError}</p>
-        )}
-        {searchSuccess && (
-          <p className="mt-2 text-sm text-green-600">{searchSuccess}</p>
-        )}
+        {searchError && <p className="mt-2 text-sm text-red-500">{searchError}</p>}
+        {searchSuccess && <p className="mt-2 text-sm text-green-600">{searchSuccess}</p>}
       </div>
 
       {/* Incoming requests */}
@@ -217,7 +218,7 @@ export function FriendsList({ friendships, currentUserId }: FriendsListProps) {
                       <p className="truncate font-medium text-stone-900">
                         {friend.display_name || friend.email}
                       </p>
-                      <p className="truncate text-xs text-stone-400">{friend.email}</p>
+                      <FriendSubtitle profile={friend} />
                     </div>
                     <div className="flex gap-2">
                       <button
@@ -261,7 +262,7 @@ export function FriendsList({ friendships, currentUserId }: FriendsListProps) {
             </div>
             <h3 className="mt-4 font-semibold text-stone-900">No friends yet</h3>
             <p className="mt-1 text-sm text-stone-500">
-              Add a friend by entering their email above.
+              Add a friend by entering their username above.
             </p>
           </div>
         ) : (
@@ -282,7 +283,7 @@ export function FriendsList({ friendships, currentUserId }: FriendsListProps) {
                       <p className="truncate font-medium text-stone-900">
                         {friend.display_name || friend.email}
                       </p>
-                      <p className="truncate text-xs text-stone-400">{friend.email}</p>
+                      <FriendSubtitle profile={friend} />
                     </div>
                     <div className="flex items-center gap-1 opacity-0 transition-all group-hover:opacity-100">
                       <Link
@@ -323,7 +324,7 @@ export function FriendsList({ friendships, currentUserId }: FriendsListProps) {
                     <p className="truncate text-sm font-medium text-stone-900">
                       {friend.display_name || friend.email}
                     </p>
-                    <p className="truncate text-xs text-stone-400">{friend.email}</p>
+                    <FriendSubtitle profile={friend} />
                   </div>
                   <span className="rounded-full bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-500">
                     Pending

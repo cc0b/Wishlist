@@ -11,8 +11,8 @@ export default async function FriendsPage() {
     .from("friendships")
     .select(
       `id, requester_id, addressee_id, status, created_at,
-       requester:profiles!friendships_requester_id_fkey(id, email, display_name, avatar_url),
-       addressee:profiles!friendships_addressee_id_fkey(id, email, display_name, avatar_url)`
+       requester:profiles!friendships_requester_id_fkey(id, email, display_name, avatar_url, username),
+       addressee:profiles!friendships_addressee_id_fkey(id, email, display_name, avatar_url, username)`
     )
     .or(`requester_id.eq.${user!.id},addressee_id.eq.${user!.id}`)
     .order("created_at", { ascending: false });

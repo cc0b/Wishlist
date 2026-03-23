@@ -3,20 +3,24 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-client";
-import { Check, AlertTriangle } from "lucide-react";
+import { Check, AlertTriangle, AtSign } from "lucide-react";
 
 interface Profile {
   id: string;
   email: string;
   display_name: string;
   avatar_url: string | null;
+  username: string | null;
 }
+
+const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
 
 export function SettingsForm({ profile }: { profile: Profile }) {
   const router = useRouter();
   const supabase = createClient();
 
   const [displayName, setDisplayName] = useState(profile.display_name);
+  const [username, setUsername] = useState(profile.username ?? "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState("");
@@ -24,23 +28,51 @@ export function SettingsForm({ profile }: { profile: Profile }) {
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
 
-  const isDirty = displayName.trim() !== profile.display_name;
+  const usernameError =
+    username && !USERNAME_RE.test(username)
+      ? "3–20 chars, lowercase letters, numbers and underscores only."
+      : "";
+
+  const isDirty =
+    displayName.trim() !== profile.display_name ||
+    username !== (profile.username ?? "");
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isDirty || !displayName.trim()) return;
+    if (!isDirty || !displayName.trim() || usernameError) return;
     setSaving(true);
     setSaveError("");
     setSaved(false);
 
+    // Uniqueness check before hitting the DB constraint
+    if (username && username !== profile.username) {
+      const { data: existing } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("username", username)
+        .single();
+      if (existing) {
+        setSaveError("That username is already taken.");
+        setSaving(false);
+        return;
+      }
+    }
+
     const { error } = await supabase
       .from("profiles")
-      .update({ display_name: displayName.trim() })
+      .update({
+        display_name: displayName.trim(),
+        username: username.trim() || null,
+      })
       .eq("id", profile.id);
 
     setSaving(false);
     if (error) {
-      setSaveError("Failed to save. Please try again.");
+      setSaveError(
+        error.message.includes("unique")
+          ? "That username is already taken."
+          : "Failed to save. Please try again."
+      );
     } else {
       setSaved(true);
       router.refresh();
@@ -51,10 +83,7 @@ export function SettingsForm({ profile }: { profile: Profile }) {
   const handleDeleteAccount = async () => {
     if (deleteConfirm !== profile.email) return;
     setDeleting(true);
-
-    // Delete all user data — cascade will handle wishlists/items/friendships
     await supabase.from("profiles").delete().eq("id", profile.id);
-    // Sign out and let the auth trigger cascade handle auth.users deletion
     await supabase.auth.signOut();
     router.push("/");
     router.refresh();
@@ -66,7 +95,7 @@ export function SettingsForm({ profile }: { profile: Profile }) {
       <div className="card">
         <h2 className="mb-1 font-semibold text-stone-900">Profile</h2>
         <p className="mb-6 text-sm text-stone-500">
-          Update your display name shown to friends.
+          Update your display name and username.
         </p>
 
         <div className="mb-6 flex items-center gap-4">
@@ -83,8 +112,13 @@ export function SettingsForm({ profile }: { profile: Profile }) {
             </div>
           )}
           <div>
-            <p className="font-medium text-stone-900">{profile.display_name || profile.email}</p>
-            <p className="text-sm text-stone-400">
+            <p className="font-medium text-stone-900">
+              {profile.display_name || profile.email}
+            </p>
+            {profile.username && (
+              <p className="text-sm text-stone-400">@{profile.username}</p>
+            )}
+            <p className="mt-0.5 text-xs text-stone-400">
               Avatar synced from your Google account
             </p>
           </div>
@@ -110,6 +144,33 @@ export function SettingsForm({ profile }: { profile: Profile }) {
 
           <div>
             <label className="mb-1.5 block text-sm font-medium text-stone-700">
+              Username
+            </label>
+            <div className="relative max-w-sm">
+              <AtSign className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => {
+                  setUsername(e.target.value.toLowerCase().replace(/\s/g, ""));
+                  setSaved(false);
+                  setSaveError("");
+                }}
+                placeholder="your_username"
+                className={`input-field pl-9 ${usernameError ? "border-red-300 focus:border-red-400 focus:ring-red-100" : ""}`}
+              />
+            </div>
+            {usernameError ? (
+              <p className="mt-1.5 text-xs text-red-500">{usernameError}</p>
+            ) : (
+              <p className="mt-1.5 text-xs text-stone-400">
+                3–20 chars · lowercase letters, numbers, underscores · used to add friends
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-stone-700">
               Email
             </label>
             <input
@@ -119,14 +180,14 @@ export function SettingsForm({ profile }: { profile: Profile }) {
               className="input-field max-w-sm cursor-not-allowed opacity-50"
             />
             <p className="mt-1.5 text-xs text-stone-400">
-              Email is managed by Google and cannot be changed here.
+              Managed by Google and cannot be changed here.
             </p>
           </div>
 
           <div className="flex items-center gap-3">
             <button
               type="submit"
-              disabled={!isDirty || saving || !displayName.trim()}
+              disabled={!isDirty || saving || !displayName.trim() || !!usernameError}
               className="btn-primary"
             >
               {saving ? "Saving…" : "Save changes"}
@@ -160,7 +221,9 @@ export function SettingsForm({ profile }: { profile: Profile }) {
         <div className="space-y-3">
           <div>
             <label className="mb-1.5 block text-sm font-medium text-stone-700">
-              Type <span className="font-mono text-stone-900">{profile.email}</span> to confirm
+              Type{" "}
+              <span className="font-mono text-stone-900">{profile.email}</span>{" "}
+              to confirm
             </label>
             <input
               type="email"
